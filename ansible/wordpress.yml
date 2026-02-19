@@ -1,0 +1,76 @@
+---
+- name: Install WordPress
+  hosts: all
+  become: yes
+  vars:
+    wp_db_name: wordpress
+    wp_db_user: wpuser
+    wp_db_password: wppass
+    wp_db_root_password: rootpass
+    wp_path: /var/www/html/wordpress
+
+  tasks:
+    - name: Update packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install packages
+      apt:
+        name:
+          - apache2
+          - php
+          - php-mysql
+          - mysql-server
+          - unzip
+          - curl
+        state: present
+
+    - name: Start Apache & MySQL
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - apache2
+        - mysql
+
+    - name: Create WP User
+      mysql_db:
+        name: "{{ wp_db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ wp_db_root_password }}"
+      notify: Create wp user
+
+    - name: Download WP
+      unarchive:
+        src: https://wordpress.org/latest.zip
+        dest: /var/www/html/
+        remote_src: yes
+        creates: /var/www/html/wordpress
+
+    - name: Apache rights
+      file:
+        path: "{{ wp_path }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Configure wp-config.php file
+      template:
+        src: wp-config.php.j2
+        dest: "{{ wp_path }}/wp-config.php"
+        owner: www-data
+        group: www-data
+        mode: "0644"
+
+  handlers:
+    - name: Create wp user
+      mysql_user:
+        name: "{{ wp_db_user }}"
+        password: "{{ wp_db_password }}"
+        priv: "{{ wp_db_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ wp_db_root_password }}"
