@@ -13,4 +13,3 @@ provider "google" {
   zone        = "europe-west1-b"
   credentials = file("credentials/gcp_credentials.json")
 }
-
